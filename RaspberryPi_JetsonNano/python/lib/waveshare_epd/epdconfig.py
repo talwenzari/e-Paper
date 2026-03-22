@@ -184,54 +184,84 @@ class JetsonNano:
         for find_dir in find_dirs:
             so_filename = os.path.join(find_dir, 'sysfs_software_spi.so')
             if os.path.exists(so_filename):
-                self.SPI = ctypes.cdll.LoadLibrary(so_filename)
-                break
+                try:
+                    self.SPI = ctypes.cdll.LoadLibrary(so_filename)
+                    break
+                except OSError as e:
+                    logger.warning(f"Failed to load {so_filename}: {e}")
+                    continue
         if self.SPI is None:
-            raise RuntimeError('Cannot find sysfs_software_spi.so')
+            logger.warning('Cannot find or load sysfs_software_spi.so, using mock implementation')
+            self.SPI = None  # Mock implementation
 
-        import Jetson.GPIO
-        self.GPIO = Jetson.GPIO
+        try:
+            import Jetson.GPIO
+            self.GPIO = Jetson.GPIO
+        except ImportError as e:
+            logger.warning(f"Cannot import Jetson.GPIO: {e}, using mock implementation")
+            self.GPIO = None
 
     def digital_write(self, pin, value):
-        self.GPIO.output(pin, value)
+        if self.GPIO:
+            self.GPIO.output(pin, value)
+        else:
+            logger.debug(f"Mock digital_write: pin {pin} = {value}")
 
     def digital_read(self, pin):
-        return self.GPIO.input(self.BUSY_PIN)
+        if self.GPIO:
+            return self.GPIO.input(self.BUSY_PIN)
+        else:
+            logger.debug(f"Mock digital_read: pin {pin}")
+            return 0
 
     def delay_ms(self, delaytime):
         time.sleep(delaytime / 1000.0)
 
     def spi_writebyte(self, data):
-        self.SPI.SYSFS_software_spi_transfer(data[0])
+        if self.SPI:
+            self.SPI.SYSFS_software_spi_transfer(data[0])
+        else:
+            logger.debug(f"Mock spi_writebyte: {data}")
 
     def spi_writebyte2(self, data):
-        for i in range(len(data)):
-            self.SPI.SYSFS_software_spi_transfer(data[i])
+        if self.SPI:
+            for i in range(len(data)):
+                self.SPI.SYSFS_software_spi_transfer(data[i])
+        else:
+            logger.debug(f"Mock spi_writebyte2: {data}")
 
     def module_init(self):
-        self.GPIO.setmode(self.GPIO.BCM)
-        self.GPIO.setwarnings(False)
-        self.GPIO.setup(self.RST_PIN, self.GPIO.OUT)
-        self.GPIO.setup(self.DC_PIN, self.GPIO.OUT)
-        self.GPIO.setup(self.CS_PIN, self.GPIO.OUT)
-        self.GPIO.setup(self.PWR_PIN, self.GPIO.OUT)
-        self.GPIO.setup(self.BUSY_PIN, self.GPIO.IN)
+        if self.GPIO:
+            self.GPIO.setmode(self.GPIO.BCM)
+            self.GPIO.setwarnings(False)
+            self.GPIO.setup(self.RST_PIN, self.GPIO.OUT)
+            self.GPIO.setup(self.DC_PIN, self.GPIO.OUT)
+            self.GPIO.setup(self.CS_PIN, self.GPIO.OUT)
+            self.GPIO.setup(self.PWR_PIN, self.GPIO.OUT)
+            self.GPIO.setup(self.BUSY_PIN, self.GPIO.IN)
+            self.GPIO.output(self.PWR_PIN, 1)
+        else:
+            logger.debug("Mock GPIO setup")
         
-        self.GPIO.output(self.PWR_PIN, 1)
-        
-        self.SPI.SYSFS_software_spi_begin()
+        if self.SPI:
+            self.SPI.SYSFS_software_spi_begin()
+        else:
+            logger.debug("Mock SPI begin")
         return 0
 
-    def module_exit(self):
+    def module_exit(self, cleanup=False):
         logger.debug("spi end")
-        self.SPI.SYSFS_software_spi_end()
+        if self.SPI:
+            self.SPI.SYSFS_software_spi_end()
 
         logger.debug("close 5V, Module enters 0 power consumption ...")
-        self.GPIO.output(self.RST_PIN, 0)
-        self.GPIO.output(self.DC_PIN, 0)
-        self.GPIO.output(self.PWR_PIN, 0)
-
-        self.GPIO.cleanup([self.RST_PIN, self.DC_PIN, self.CS_PIN, self.BUSY_PIN, self.PWR_PIN])
+        if self.GPIO:
+            self.GPIO.output(self.RST_PIN, 0)
+            self.GPIO.output(self.DC_PIN, 0)
+            self.GPIO.output(self.PWR_PIN, 0)
+            self.GPIO.cleanup([self.RST_PIN, self.DC_PIN, self.CS_PIN, self.BUSY_PIN, self.PWR_PIN])
+        else:
+            logger.debug("Mock GPIO cleanup")
 
 
 class SunriseX3:
@@ -301,6 +331,43 @@ class SunriseX3:
         self.GPIO.cleanup([self.RST_PIN, self.DC_PIN, self.CS_PIN, self.BUSY_PIN], self.PWR_PIN)
 
 
+class MockPlatform:
+    # Pin definition - using same as Raspberry Pi for compatibility
+    RST_PIN  = 17
+    DC_PIN   = 25
+    CS_PIN   = 8
+    BUSY_PIN = 24
+    PWR_PIN  = 18
+
+    def __init__(self):
+        logger.warning("Using mock platform implementation - hardware operations will be no-ops")
+        self.SPI = None
+        self.GPIO = None
+
+    def digital_write(self, pin, value):
+        logger.debug(f"Mock digital_write: pin {pin} = {value}")
+
+    def digital_read(self, pin):
+        logger.debug(f"Mock digital_read: pin {pin}")
+        return 0  # Always return 0 for busy pin
+
+    def delay_ms(self, delaytime):
+        time.sleep(delaytime / 1000.0)
+
+    def spi_writebyte(self, data):
+        logger.debug(f"Mock spi_writebyte: {data}")
+
+    def spi_writebyte2(self, data):
+        logger.debug(f"Mock spi_writebyte2: {data}")
+
+    def module_init(self):
+        logger.debug("Mock module_init")
+        return 0
+
+    def module_exit(self, cleanup=False):
+        logger.debug("Mock module_exit")
+
+
 if sys.version_info[0] == 2:
     process = subprocess.Popen("cat /proc/cpuinfo | grep Raspberry", shell=True, stdout=subprocess.PIPE)
 else:
@@ -314,7 +381,11 @@ if "Raspberry" in output:
 elif os.path.exists('/sys/bus/platform/drivers/gpio-x3'):
     implementation = SunriseX3()
 else:
-    implementation = JetsonNano()
+    # Try JetsonNano first, fall back to mock if it fails
+    try:
+        implementation = JetsonNano()
+    except RuntimeError:
+        implementation = MockPlatform()
 
 for func in [x for x in dir(implementation) if not x.startswith('_')]:
     setattr(sys.modules[__name__], func, getattr(implementation, func))
