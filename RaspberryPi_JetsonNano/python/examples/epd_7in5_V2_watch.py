@@ -80,6 +80,7 @@ def main() -> int:
         try:
             if has_displayed:
                 logging.info('Putting display to sleep')
+                epd.Clear()
                 epd.sleep()
         except Exception:
             logging.exception('Failed to put display to sleep')
