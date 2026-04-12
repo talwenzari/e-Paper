@@ -5,6 +5,10 @@ import os
 import sys
 import time
 from pathlib import Path
+libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
+if os.path.exists(libdir):
+    sys.path.append(libdir)
+
 
 from PIL import Image
 from waveshare_epd import epd7in5_V2
