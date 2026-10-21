@@ -39,10 +39,17 @@ def load_display_image(image_path: Path, width: int, height: int) -> Image.Image
                     if pixels[x, y] == 0:
                         black += 1
             bands.append(round(black / total, 3) if total else None)
-        _payload = {"sessionId": "b27ad5", "runId": "post-fix", "hypothesisId": "A", "location": "epd_7in5_V2_watch.py:load_display_image", "message": "buffer black fraction left to right", "data": {"mode": image.mode, "size": list(image.size), "blackFractionByQuarter": bands}, "timestamp": int(time.time() * 1000)}
+        _payload = {"sessionId": "b27ad5", "runId": "post-fix-vcom", "hypothesisId": "A", "location": "epd_7in5_V2_watch.py:load_display_image", "message": "buffer black fraction left to right", "data": {"mode": image.mode, "size": list(image.size), "blackFractionByQuarter": bands}, "timestamp": int(time.time() * 1000)}
         logging.info("debug %s", json.dumps(_payload))
-        with open(r"c:\Users\TuomasTalvensaari\Repos\e-Paper\.cursor\debug-b27ad5.log", "a", encoding="utf-8") as _f:
-            _f.write(json.dumps(_payload) + "\n")
+        _line = json.dumps(_payload) + "\n"
+        _paths = [Path(r"c:\Users\TuomasTalvensaari\Repos\e-Paper\.cursor\debug-b27ad5.log"), Path(__file__).resolve().parents[3] / ".cursor" / "debug-b27ad5.log"]
+        for _path in _paths:
+            try:
+                _path.parent.mkdir(parents=True, exist_ok=True)
+                with open(_path, "a", encoding="utf-8") as _f:
+                    _f.write(_line)
+            except Exception:
+                pass
     except Exception:
         pass
     # #endregion

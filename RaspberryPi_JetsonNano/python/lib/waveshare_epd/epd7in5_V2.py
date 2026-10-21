@@ -112,10 +112,18 @@ class EPD:
         # #region agent log
         try:
             import json, time
-            _payload = {"sessionId": "b27ad5", "runId": "post-fix", "hypothesisId": "B", "location": "epd7in5_V2.py:init", "message": "power setting sent", "data": {"vdh": "0x3f", "vdl": "0x3f", "vcom": "0x50/0x07", "previousVdh": "0x28", "previousVdl": "0x17"}, "timestamp": int(time.time() * 1000)}
+            from pathlib import Path
+            _payload = {"sessionId": "b27ad5", "runId": "post-fix-vcom", "hypothesisId": "B", "location": "epd7in5_V2.py:init", "message": "power setting sent", "data": {"vdh": "0x3f", "vdl": "0x3f"}, "timestamp": int(time.time() * 1000)}
             logger.info("debug %s", json.dumps(_payload))
-            with open(r"c:\Users\TuomasTalvensaari\Repos\e-Paper\.cursor\debug-b27ad5.log", "a", encoding="utf-8") as _f:
-                _f.write(json.dumps(_payload) + "\n")
+            _line = json.dumps(_payload) + "\n"
+            _paths = [Path(r"c:\Users\TuomasTalvensaari\Repos\e-Paper\.cursor\debug-b27ad5.log"), Path(__file__).resolve().parents[4] / ".cursor" / "debug-b27ad5.log"]
+            for _path in _paths:
+                try:
+                    _path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(_path, "a", encoding="utf-8") as _f:
+                        _f.write(_line)
+                except Exception:
+                    pass
         except Exception:
             pass
         # #endregion
@@ -136,15 +144,30 @@ class EPD:
         self.send_command(0X15)
         self.send_data(0x00)
 
-        # If the screen appears gray, use the annotated initialization command
+        # Gray after the refresh pulse: alternate VCOM interval from the driver notes.
         self.send_command(0X50)
         self.send_data(0x10)
-        self.send_data(0x07)
-        # self.send_command(0X50)
-        # self.send_data(0x10)
-        # self.send_data(0x17)
-        # self.send_command(0X52)		
-        # self.send_data(0x03)
+        self.send_data(0x17)
+        self.send_command(0X52)
+        self.send_data(0x03)
+        # #region agent log
+        try:
+            import json, time
+            from pathlib import Path
+            _payload = {"sessionId": "b27ad5", "runId": "post-fix-vcom", "hypothesisId": "C", "location": "epd7in5_V2.py:init", "message": "vcom setting sent", "data": {"vcom": "0x50/0x17", "evs": "0x52/0x03"}, "timestamp": int(time.time() * 1000)}
+            logger.info("debug %s", json.dumps(_payload))
+            _line = json.dumps(_payload) + "\n"
+            _paths = [Path(r"c:\Users\TuomasTalvensaari\Repos\e-Paper\.cursor\debug-b27ad5.log"), Path(__file__).resolve().parents[4] / ".cursor" / "debug-b27ad5.log"]
+            for _path in _paths:
+                try:
+                    _path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(_path, "a", encoding="utf-8") as _f:
+                        _f.write(_line)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # #endregion
 
         self.send_command(0X60)			#TCON SETTING
         self.send_data(0x22)
