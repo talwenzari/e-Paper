@@ -107,8 +107,18 @@ class EPD:
         self.send_command(0x01)			#POWER SETTING
         self.send_data(0x07)
         self.send_data(0x07)    #VGH=20V,VGL=-20V
-        self.send_data(0x28)		#VDH=15V
-        self.send_data(0x17)		#VDL=-15V
+        self.send_data(0x3f)		#VDH=15V
+        self.send_data(0x3f)		#VDL=-15V
+        # #region agent log
+        try:
+            import json, time
+            _payload = {"sessionId": "b27ad5", "runId": "post-fix", "hypothesisId": "B", "location": "epd7in5_V2.py:init", "message": "power setting sent", "data": {"vdh": "0x3f", "vdl": "0x3f", "vcom": "0x50/0x07", "previousVdh": "0x28", "previousVdl": "0x17"}, "timestamp": int(time.time() * 1000)}
+            logger.info("debug %s", json.dumps(_payload))
+            with open(r"c:\Users\TuomasTalvensaari\Repos\e-Paper\.cursor\debug-b27ad5.log", "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(_payload) + "\n")
+        except Exception:
+            pass
+        # #endregion
 
         self.send_command(0x04) #POWER ON
         epdconfig.delay_ms(100)
